@@ -53,9 +53,11 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 # Add any user requested libraries
 target_link_libraries(${PROJECT_NAME}
     pico_stdlib
-    pico_cyw43_arch_none
+    pico_cyw43_arch_lwip_threadsafe_background
+    hardware_rtc
 )
 
+pico_add_extra_outputs(${PROJECT_NAME})
 
 find_program(CPPCHECK cppcheck)
 if(CPPCHECK)
