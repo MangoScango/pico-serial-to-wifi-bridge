@@ -1,0 +1,18 @@
+{
+	"configurations": [
+		{
+			"name": "Linux",
+			"includePath": [
+				"${workspaceFolder}/**",
+				"${env:PICO_SDK_PATH}/**"
+			],
+			"defines": [],
+			"compilerPath": "${env:CC_PATH}",
+			"compileCommands": "${workspaceFolder}/build/compile_commands.json",
+			"cStandard": "c17",
+			"cppStandard": "gnu++14",
+			"intelliSenseMode": "linux-gcc-arm"
+		}
+	],
+	"version": 4
+}

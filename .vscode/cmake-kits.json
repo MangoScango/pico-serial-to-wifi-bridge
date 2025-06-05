@@ -1,0 +1,15 @@
+[
+    {
+		"name": "Pico",
+		"compilers": {
+			"C": "${env:CC_PATH}",
+			"CXX": "${env:CXX_PATH}"
+		},
+		"environmentVariables": {
+			"PATH": "${env:PATH}"
+		},
+		"cmakeSettings": {
+			"Python3_EXECUTABLE": "${env:PYTHON3_PATH}"
+		}
+	}
+]

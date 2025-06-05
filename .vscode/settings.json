@@ -1,0 +1,26 @@
+{
+	"cmake.options.statusBarVisibility": "hidden",
+	"cmake.options.advanced": {
+		"build": {
+			"statusBarVisibility": "hidden"
+		},
+		"launch": {
+			"statusBarVisibility": "hidden"
+		},
+		"debug": {
+			"statusBarVisibility": "hidden"
+		}
+	},
+	"cmake.configureOnEdit": true,
+	"cmake.automaticReconfigure": true,
+	"cmake.configureOnOpen": true,
+	"cmake.generator": "Ninja",
+	"cmake.cmakePath": "${env:CMAKE_PATH}",
+	"C_Cpp.debugShortcut": false,
+	"files.associations": {
+		"stdlib.h": "c",
+		"pico.h": "c",
+		"pwm.h": "c",
+		"pio.h": "c"
+	}
+}

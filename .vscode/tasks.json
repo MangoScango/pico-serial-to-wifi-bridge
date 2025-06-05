@@ -1,0 +1,116 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Configure",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"-S",
+				"${workspaceFolder}",
+				"-B",
+				"${workspaceFolder}/build"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": false
+			},
+			"problemMatcher": [
+				"$gcc"
+			]
+		},
+		{
+			"label": "Build",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"${workspaceFolder}/build"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"dependsOn": "Configure"
+		},
+		{
+			"label": "Run Project",
+			"type": "process",
+			"command": "picotool",
+			"args": [
+				"load",
+				"${command:raspberry-pi-pico.launchTargetPath}",
+				"-fx"
+			],
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Flash",
+			"type": "process",
+			"command": "openocd",
+			"args": [
+				"-f",
+				"interface/cmsis-dap.cfg",
+				"-f",
+				"target/rp2040.cfg",
+				"-c",
+				"adapter speed 5000",
+				"-c",
+				"program ${workspaceFolder}/build/pico-serial-to-wifi-bridge.elf verify reset exit"
+			],
+			"problemMatcher": [],
+			"dependsOn": "Build"
+		},
+		{
+			"label": "Flash (verbose)",
+			"type": "process",
+			"command": "openocd",
+			"args": [
+				"-d3",
+				"-f",
+				"interface/cmsis-dap.cfg",
+				"-f",
+				"target/rp2040.cfg",
+				"-c",
+				"adapter speed 5000",
+				"-c",
+				"program ${workspaceFolder}/build/pico-scope.elf verify reset exit"
+			],
+			"problemMatcher": [],
+			"dependsOn": "Build"
+		},
+		{
+			"label": "Clean",
+			"type": "shell",
+			"command": "rm",
+			"args": [
+				"-rf",
+				"${workspaceFolder}/build"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "Reset",
+			"type": "process",
+			"command": "openocd",
+			"args": [
+				"-f",
+				"interface/cmsis-dap.cfg",
+				"-f",
+				"target/rp2040.cfg",
+				"-c",
+				"adapter speed 5000",
+				"-c",
+				"init; reset; exit"
+			],
+			"problemMatcher": []
+		}
+	]
+}
