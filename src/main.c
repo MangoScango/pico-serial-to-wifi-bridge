@@ -29,10 +29,10 @@ void getDateNow(struct tm *t)
     t->tm_isdst = -1;
 }
 
-void sendData(struct altcp_pcb *pcb)
+void sendData(struct altcp_pcb *pcb, char *myBuff)
 {
     err_t err;
-    char html[] = "<html><head><title>Temperature</title></head><body><p>{\"humidity\":81%, \"airtemperature\":23.5C}</p></body></html>\r\n";
+    char *html = myBuff;
     char headers[1024] = {0};
     char Status[] = "HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=UTF-8\r\nServer:Picow\r\n";
 
@@ -57,20 +57,21 @@ err_t recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err)
     char myBuff[BUF_SIZE];
     if (p != NULL)
     {
-        printf("recv total %d  this buffer %d next %d err %d\n", p->tot_len, p->len, p->next, err);
+        // printf("recv total %d  this buffer %d next %d err %d\n", p->tot_len, p->len, p->next, err);
         pbuf_copy_partial(p, myBuff, p->tot_len, 0);
         myBuff[p->tot_len] = 0;
-        printf("Buffer= %s\n", myBuff);
+        // printf("Buffer= %s\n", myBuff);
+        printf("%s\n", myBuff);
         altcp_recved(pcb, p->tot_len);
         pbuf_free(p);
-        sendData(pcb);
+        sendData(pcb, myBuff);
     }
     return ERR_OK;
 }
 
 static err_t sent(void *arg, struct altcp_pcb *pcb, u16_t len)
 {
-    altcp_close(pcb);
+    // altcp_close(pcb);
 }
 
 static err_t accept(void *arg, struct altcp_pcb *pcb, err_t err)
