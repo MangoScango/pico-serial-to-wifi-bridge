@@ -1,1 +1,3 @@
-# pico-plot
+- Fetch and set time
+- How manage the tcp connection? No memory leak
+- Reconnect to wifi until successfull

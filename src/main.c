@@ -40,7 +40,7 @@ void getDateNow(struct tm *t)
     t->tm_isdst = -1;
 }
 
-void sendData(struct altcp_pcb *pcb, char *myBuff)
+void send200Ok(struct altcp_pcb *pcb, char *myBuff)
 {
     err_t err;
     char *html = myBuff;
@@ -68,14 +68,16 @@ err_t recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err)
     char myBuff[BUF_SIZE];
     if (p != NULL)
     {
-        // printf("recv total %d  this buffer %d next %d err %d\n", p->tot_len, p->len, p->next, err);
         pbuf_copy_partial(p, myBuff, p->tot_len, 0);
         myBuff[p->tot_len] = 0;
-        // printf("Buffer= %s\n", myBuff);
         printf("%s\n", myBuff);
+        for (int i = 0; i < p->tot_len; ++i)
+        {
+            uart_putc_raw(UART1_ID, myBuff[i]);
+        }
         altcp_recved(pcb, p->tot_len);
         pbuf_free(p);
-        sendData(pcb, myBuff);
+        send200Ok(pcb, myBuff);
     }
     return ERR_OK;
 }
@@ -165,8 +167,16 @@ int main()
 
     // OK, all set up.
     // Lets send a basic string out, and then run a loop and wait for RX interrupts
-    // The handler will count them, but also reflect the incoming data back with a slight change!
-    uart_puts(UART1_ID, "\nHello, uart interrupts\n");
+    // Print all UART settings
+    printf("\n");
+    printf("UART Settings:\n");
+    printf("UART Id: %s\n", UART1_ID == uart1 ? "uart1" : "uart0");
+    printf("Baud Rate: %d\n", BAUD_RATE);
+    printf("Data Bits: %d\n", DATA_BITS);
+    printf("Stop Bits: %d\n", STOP_BITS);
+    printf("Parity: %s\n", PARITY == UART_PARITY_NONE ? "None" : (PARITY == UART_PARITY_ODD ? "Odd" : "Even"));
+    printf("TX Pin: %d\n", UART1_TX_PIN);
+    printf("RX Pin: %d\n", UART1_RX_PIN);
 
     while (true)
     {
