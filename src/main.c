@@ -1,15 +1,16 @@
-
 #include <stdio.h>
 
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include "lwip/pbuf.h"
 #include "lwip/altcp_tcp.h"
+#include "lwip/apps/sntp.h"
 
 #include "hardware/uart.h"
 #include "hardware/irq.h"
 #include "hardware/rtc.h"
 #include "time.h"
+#include "pico/util/datetime.h"
 
 #include "setupWifi.h"
 
@@ -24,20 +25,23 @@
 #define UART1_TX_PIN 4
 #define UART1_RX_PIN 5
 
-void getDateNow(struct tm *t)
+bool getDateNow(struct tm *t)
 {
     datetime_t rtc;
-    rtc_get_datetime(&rtc);
-
-    t->tm_sec = rtc.sec;
-    t->tm_min = rtc.min;
-    t->tm_hour = rtc.hour;
-    t->tm_mday = rtc.day;
-    t->tm_mon = rtc.month - 1;
-    t->tm_year = rtc.year - 1900;
-    t->tm_wday = rtc.dotw;
-    t->tm_yday = 0;
-    t->tm_isdst = -1;
+    bool state = rtc_get_datetime(&rtc);
+    if (state)
+    {
+        t->tm_sec = rtc.sec;
+        t->tm_min = rtc.min;
+        t->tm_hour = rtc.hour;
+        t->tm_mday = rtc.day;
+        t->tm_mon = rtc.month - 1;
+        t->tm_year = rtc.year - 1900;
+        t->tm_wday = rtc.dotw;
+        t->tm_yday = 0;
+        t->tm_isdst = -1;
+    }
+    return state;
 }
 
 void send200Ok(struct altcp_pcb *pcb, char *myBuff)
@@ -84,7 +88,7 @@ err_t recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err)
 
 static err_t sent(void *arg, struct altcp_pcb *pcb, u16_t len)
 {
-    // altcp_close(pcb);
+    altcp_close(pcb);
 }
 
 static err_t accept(void *arg, struct altcp_pcb *pcb, err_t err)
@@ -94,20 +98,6 @@ static err_t accept(void *arg, struct altcp_pcb *pcb, err_t err)
     printf("connect!\n");
 
     return ERR_OK;
-}
-
-void setRTC()
-{
-    datetime_t t = {
-        .year = 2023,
-        .month = 02,
-        .day = 03,
-        .dotw = 5,
-        .hour = 11,
-        .min = 10,
-        .sec = 00};
-    rtc_init();
-    rtc_set_datetime(&t);
 }
 
 // RX interrupt handler
@@ -124,10 +114,69 @@ void on_uart_rx()
     }
 }
 
+// Custom implementation of pico_localtime_r for Swedish time (CET/CEST)
+// This overrides the weak implementation in the Pico SDK
+struct tm *pico_localtime_r(const time_t *time, struct tm *tm)
+{
+    // First get UTC time
+    gmtime_r(time, tm);
+
+    // Check if DST is active (rough approximation)
+    // DST in Europe: Last Sunday in March to Last Sunday in October
+    int isDST = 0;
+    if ((tm->tm_mon > 2 && tm->tm_mon < 9) ||
+        (tm->tm_mon == 2 && tm->tm_mday - tm->tm_wday > 24) ||
+        (tm->tm_mon == 9 && tm->tm_mday - tm->tm_wday <= 24))
+    {
+        isDST = 1; // Summer time (CEST, UTC+2)
+    }
+
+    // Apply Swedish time offset: +1 hour (CET) or +2 hours (CEST during summer)
+    time_t adjusted_time = *time + 3600 + (isDST ? 3600 : 0);
+    return gmtime_r(&adjusted_time, tm);
+}
+
+// Modified SNTPSetRTC function to use our Swedish time implementation
+void SNTPSetRTC(u32_t t, u32_t us)
+{
+    printf("Updating RTC\n");
+    time_t seconds_since_1970 = t - 2208988800; // Convert NTP epoch to Unix epoch
+
+    // Create a datetime_t structure using our custom localtime implementation
+    struct tm datetime;
+    pico_localtime_r(&seconds_since_1970, &datetime);
+
+    // Convert tm structure to datetime_t for RTC
+    datetime_t dt;
+    dt.year = datetime.tm_year + 1900;
+    dt.month = datetime.tm_mon + 1;
+    dt.day = datetime.tm_mday;
+    dt.dotw = datetime.tm_wday;
+    dt.hour = datetime.tm_hour;
+    dt.min = datetime.tm_min;
+    dt.sec = datetime.tm_sec;
+
+    // Initialize RTC and set the datetime
+    rtc_init();
+    rtc_set_datetime(&dt);
+
+    // Determine if we're in DST for the log message
+    int isDST = 0;
+    if ((datetime.tm_mon > 2 && datetime.tm_mon < 9) ||
+        (datetime.tm_mon == 2 && datetime.tm_mday - datetime.tm_wday > 24) ||
+        (datetime.tm_mon == 9 && datetime.tm_mday - datetime.tm_wday <= 24))
+    {
+        isDST = 1;
+    }
+
+    printf("Time set to Swedish time (UTC+%d)\n", 1 + isDST);
+    printf("Current time: %04d-%02d-%02d %02d:%02d:%02d\n",
+           dt.year, dt.month, dt.day, dt.hour, dt.min, dt.sec);
+}
+
 int main()
 {
     stdio_init_all();
-    setRTC();
     connect(WIFI_SSID, WIFI_PASSWORD);
     struct altcp_pcb *pcb = altcp_new(NULL);
     altcp_accept(pcb, accept);
@@ -136,6 +185,11 @@ int main()
     cyw43_arch_lwip_begin();
     pcb = altcp_listen_with_backlog(pcb, 3);
     cyw43_arch_lwip_end();
+
+    // This causes PANIC
+    // sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    // sntp_setservername(0, "pool.ntp.org");
+    // sntp_init();
 
     uart_init(UART1_ID, BAUD_RATE);
 
