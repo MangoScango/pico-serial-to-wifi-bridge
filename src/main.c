@@ -90,14 +90,14 @@ err_t recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err)
     {
         pbuf_copy_partial(p, myBuff, p->tot_len, 0);
         myBuff[p->tot_len] = 0;
-        printf("%s\n", myBuff);
+        printf("%s", myBuff);
         for (int i = 0; i < p->tot_len; ++i)
         {
             uart_putc_raw(UART1_ID, myBuff[i]);
         }
         altcp_recved(pcb, p->tot_len);
         pbuf_free(p);
-        send200Ok(pcb, myBuff);
+        // send200Ok(pcb, myBuff);
     }
     else
     {
