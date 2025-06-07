@@ -114,7 +114,7 @@ err_t recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err)
 
 static err_t sent(void *arg, struct altcp_pcb *pcb, u16_t len)
 {
-    // altcp_close(pcb);
+    return ERR_OK;
 }
 
 static err_t accept(void *arg, struct altcp_pcb *pcb, err_t err)
