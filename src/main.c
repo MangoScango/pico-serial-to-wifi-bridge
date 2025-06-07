@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 
 #include "pico/stdlib.h"
@@ -23,6 +22,9 @@
 
 #define UART1_TX_PIN 4
 #define UART1_RX_PIN 5
+
+// Global variable to track the current active connection
+static struct altcp_pcb *current_connection = NULL;
 
 void getDateNow(struct tm *t)
 {
@@ -79,6 +81,15 @@ err_t recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err)
         pbuf_free(p);
         send200Ok(pcb, myBuff);
     }
+else
+    {
+        // NULL pbuf indicates connection closed by the client
+        printf("Client disconnected\n");
+        if (pcb == current_connection) {
+            current_connection = NULL;
+        }
+        altcp_close(pcb);
+    }
     return ERR_OK;
 }
 
@@ -89,10 +100,21 @@ static err_t sent(void *arg, struct altcp_pcb *pcb, u16_t len)
 
 static err_t accept(void *arg, struct altcp_pcb *pcb, err_t err)
 {
+// If there's already an active connection, close it
+    if (current_connection != NULL) {
+        printf("Closing existing connection to accept new one\n");
+        altcp_close(current_connection);
+        current_connection = NULL;
+    }
+    
+    // Set up the new connection
     altcp_recv(pcb, recv);
     altcp_sent(pcb, sent);
-    printf("connect!\n");
+    
+    // Store the new connection as our current active connection
+    current_connection = pcb;
 
+printf("New connection accepted\n");
     return ERR_OK;
 }
 
