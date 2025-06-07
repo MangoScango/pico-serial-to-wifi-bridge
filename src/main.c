@@ -12,18 +12,12 @@
 #include "time.h"
 
 #include "setupWifi.h"
+#include "setupUart.h"
 
 #define BUF_SIZE 2048
-#define UART_RX_BUFFER_SIZE 256
 
 #define UART1_ID uart1
-#define BAUD_RATE 115200
-#define DATA_BITS 8
-#define STOP_BITS 1
-#define PARITY UART_PARITY_NONE
-
-#define UART1_TX_PIN 4
-#define UART1_RX_PIN 5
+#define UART_RX_BUFFER_SIZE 256
 
 // Global variable to track the current active connection
 static struct altcp_pcb *current_connection = NULL;
@@ -274,46 +268,8 @@ int main()
     // Initialize the last_tcp_send_time
     last_tcp_send_time = get_absolute_time();
 
-    uart_init(UART1_ID, BAUD_RATE);
+    setupUart(UART1_ID, on_uart_rx);
 
-    // Set the TX and RX pins by using the function select on the GPIO
-    // Set datasheet for more information on function select
-    gpio_set_function(UART1_TX_PIN, UART_FUNCSEL_NUM(UART1_ID, UART1_TX_PIN));
-    gpio_set_function(UART1_RX_PIN, UART_FUNCSEL_NUM(UART1_ID, UART1_RX_PIN));
-
-    // Set UART flow control CTS/RTS, we don't want these, so turn them off
-    uart_set_hw_flow(UART1_ID, false, false);
-
-    // Set our data format
-    uart_set_format(UART1_ID, DATA_BITS, STOP_BITS, PARITY);
-
-    // Enable FIFO for better handling of streaming data
-    uart_set_fifo_enabled(UART1_ID, true);
-
-    // Set up a RX interrupt
-    // We need to set up the handler first
-    // Select correct interrupt for the UART we are using
-    int UART_IRQ = UART1_ID == uart1 ? UART1_IRQ : UART0_IRQ;
-
-    // And set up and enable the interrupt handlers
-    irq_set_exclusive_handler(UART_IRQ, on_uart_rx);
-    irq_set_enabled(UART_IRQ, true);
-
-    // Now enable the UART to send interrupts - RX only
-    uart_set_irq_enables(UART1_ID, true, false);
-
-    // OK, all set up.
-    // Lets send a basic string out, and then run a loop and wait for RX interrupts
-    // Print all UART settings
-    printf("\n");
-    printf("UART Settings:\n");
-    printf("UART Id: %s\n", UART1_ID == uart1 ? "uart1" : "uart0");
-    printf("Baud Rate: %d\n", BAUD_RATE);
-    printf("Data Bits: %d\n", DATA_BITS);
-    printf("Stop Bits: %d\n", STOP_BITS);
-    printf("Parity: %s\n", PARITY == UART_PARITY_NONE ? "None" : (PARITY == UART_PARITY_ODD ? "Odd" : "Even"));
-    printf("TX Pin: %d\n", UART1_TX_PIN);
-    printf("RX Pin: %d\n", UART1_RX_PIN);
     printf("UART RX Buffer Size: %d bytes\n", UART_RX_BUFFER_SIZE);
 
     while (true)
