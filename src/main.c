@@ -21,7 +21,7 @@ extern char __StackLimit, __bss_end__;
 #define BUF_SIZE 2048
 
 #define UART1_ID uart1
-#define UART_RX_BUFFER_SIZE 256
+#define UART_RX_BUFFER_SIZE 1024
 
 // Global variable to track the current active connection
 static struct altcp_pcb *current_connection = NULL;
@@ -263,7 +263,6 @@ void process_uart_data(void)
 int main()
 {
     stdio_init_all();
-    setRTC();
     connect(WIFI_SSID, WIFI_PASSWORD);
     struct altcp_pcb *pcb = altcp_new(NULL);
     altcp_accept(pcb, accept);
@@ -277,8 +276,9 @@ int main()
     last_tcp_send_time = get_absolute_time();
 
     setupUart(UART1_ID, on_uart_rx);
-
     printf("UART RX Buffer Size: %d bytes\n", UART_RX_BUFFER_SIZE);
+
+    print_memory_stats();
 
     while (true)
     {
