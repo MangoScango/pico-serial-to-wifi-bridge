@@ -14,6 +14,9 @@
 #include "setupWifi.h"
 #include "setupUart.h"
 
+// Memory monitoring includes
+extern char __StackLimit, __bss_end__;
+
 #define BUF_SIZE 2048
 
 #define UART1_ID uart1
@@ -37,6 +40,42 @@ static absolute_time_t last_tcp_send_time;
 
 // Forward declarations
 void process_uart_data(void);
+
+// Memory monitoring functions
+size_t get_free_heap(void)
+{
+    extern char __bss_end__;
+    extern char __StackLimit;
+
+    char *heap_end = (char *)malloc(1);
+    if (heap_end)
+    {
+        free(heap_end);
+        return (size_t)(&__StackLimit - heap_end);
+    }
+    return 0;
+}
+
+size_t get_stack_usage(void)
+{
+    extern char __StackLimit;
+    char stack_var;
+    return (size_t)(&stack_var - &__StackLimit);
+}
+
+void print_memory_stats(void)
+{
+    static uint32_t last_report_time = 0;
+    uint32_t now = to_ms_since_boot(get_absolute_time());
+
+    // Report every second
+    if (now - last_report_time > 1000)
+    {
+        printf("Memory Stats - Free Heap: %zu bytes, Stack Used: %zu bytes\n",
+               get_free_heap(), get_stack_usage());
+        last_report_time = now;
+    }
+}
 
 void getDateNow(struct tm *t)
 {
@@ -117,7 +156,7 @@ static err_t accept(void *arg, struct altcp_pcb *pcb, err_t err)
     if (current_connection != NULL)
     {
         printf("Closing existing connection to accept new one\n");
-        altcp_close(current_connection);
+                altcp_close(current_connection);
         current_connection = NULL;
     }
 
@@ -277,12 +316,14 @@ int main()
         // Process UART data in the main loop
         process_uart_data();
 
+        // print_memory_stats();
+
         // Check if buffer overflowed and report
         if (uart_rx_buffer_overflow)
         {
             printf("WARNING: UART RX buffer overflow detected\n");
         }
 
-        sleep_ms(5); // Short sleep to prevent CPU hogging
+        sleep_ms(5);
     }
 }
