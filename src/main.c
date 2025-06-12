@@ -4,6 +4,7 @@
 #include "pico/cyw43_arch.h"
 #include "lwip/pbuf.h"
 #include "lwip/altcp_tcp.h"
+#include "lwip/tcp.h"
 
 #include "hardware/uart.h"
 #include "hardware/irq.h"
@@ -77,22 +78,6 @@ void print_memory_stats(void)
     }
 }
 
-void getDateNow(struct tm *t)
-{
-    datetime_t rtc;
-    rtc_get_datetime(&rtc);
-
-    t->tm_sec = rtc.sec;
-    t->tm_min = rtc.min;
-    t->tm_hour = rtc.hour;
-    t->tm_mday = rtc.day;
-    t->tm_mon = rtc.month - 1;
-    t->tm_year = rtc.year - 1900;
-    t->tm_wday = rtc.dotw;
-    t->tm_yday = 0;
-    t->tm_isdst = -1;
-}
-
 void send200Ok(struct altcp_pcb *pcb)
 {
     err_t err;
@@ -119,8 +104,20 @@ err_t recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err)
     }
     else
     {
+        ip_addr_t *remote_ip = altcp_get_ip(pcb, 0);
+        u16_t remote_port = altcp_get_port(pcb, 0);
+
+        if (remote_ip != NULL)
+        {
+            printf("Client %s:%d disconnected\n",
+                   ip4addr_ntoa(ip_2_ip4(remote_ip)), remote_port);
+        }
+        else
+        {
+            printf("Client disconnected\n");
+        }
+
         // NULL pbuf indicates connection closed by the client
-        printf("Client disconnected\n");
         if (pcb == current_connection)
         {
             current_connection = NULL;
@@ -145,6 +142,19 @@ static err_t accept(void *arg, struct altcp_pcb *pcb, err_t err)
         current_connection = NULL;
     }
 
+    ip_addr_t *remote_ip = altcp_get_ip(pcb, 0);
+    u16_t remote_port = altcp_get_port(pcb, 0);
+
+    if (remote_ip != NULL)
+    {
+        printf("Client %s:%d connected\n",
+               ip4addr_ntoa(ip_2_ip4(remote_ip)), remote_port);
+    }
+    else
+    {
+        printf("Client connected\n");
+    }
+
     // Set up the new connection
     altcp_recv(pcb, recv);
     altcp_sent(pcb, sent);
@@ -152,22 +162,7 @@ static err_t accept(void *arg, struct altcp_pcb *pcb, err_t err)
     // Store the new connection as our current active connection
     current_connection = pcb;
 
-    printf("New connection accepted\n");
     return ERR_OK;
-}
-
-void setRTC()
-{
-    datetime_t t = {
-        .year = 2023,
-        .month = 02,
-        .day = 03,
-        .dotw = 5,
-        .hour = 11,
-        .min = 10,
-        .sec = 00};
-    rtc_init();
-    rtc_set_datetime(&t);
 }
 
 // Add byte to the circular buffer
@@ -292,7 +287,6 @@ int main()
 
         // print_memory_stats();
 
-        // Check if buffer overflowed and report
         if (uart_rx_buffer_overflow)
         {
             printf("WARNING: UART RX buffer overflow detected\n");
