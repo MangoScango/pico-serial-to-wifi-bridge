@@ -105,7 +105,7 @@ int connect(char *ssid, char *pass)
 {
     uint32_t country = CYW43_COUNTRY_SWEDEN;
     uint32_t auth = CYW43_AUTH_WPA2_MIXED_PSK;
-    return setup(country, ssid, pass, auth, "pico-scope", NULL, NULL, NULL);
+    return setup(country, ssid, pass, auth, "picolink", NULL, NULL, NULL);
 }
 
 #endif // SETUPWIFI_H

@@ -280,6 +280,8 @@ int main()
 
     print_memory_stats();
 
+    printf("Ready to accept connections...\n");
+
     while (true)
     {
         // Process UART data in the main loop
