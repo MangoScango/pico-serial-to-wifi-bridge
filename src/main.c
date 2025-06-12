@@ -36,7 +36,7 @@ static volatile bool uart_data_ready = false;
 
 // Time tracking for batching data
 static absolute_time_t last_tcp_send_time;
-#define TCP_SEND_INTERVAL_MS 50 // Send at most every 50ms
+#define TCP_SEND_INTERVAL_MS 20
 
 // Forward declarations
 void process_uart_data(void);
@@ -93,26 +93,12 @@ void getDateNow(struct tm *t)
     t->tm_isdst = -1;
 }
 
-void send200Ok(struct altcp_pcb *pcb, char *myBuff)
+void send200Ok(struct altcp_pcb *pcb)
 {
     err_t err;
-    char *html = myBuff;
-    char headers[1024] = {0};
-    char Status[] = "HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=UTF-8\r\nServer:Picow\r\n";
+    char response[] = "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n";
 
-    struct tm t;
-    getDateNow(&t);
-    char Date[100];
-    strftime(Date, sizeof(Date), "Date: %a, %d %b %Y %k:%M:%S %Z\r\n", &t);
-
-    char ContLen[100] = {0};
-    snprintf(ContLen, sizeof ContLen, "Content-Length:%d \r\n", strlen(html));
-    snprintf(headers, sizeof headers, "%s%s%s\r\n", Status, Date, ContLen);
-
-    char data[2048] = {0};
-    snprintf(data, sizeof data, "%s%s", headers, html);
-
-    err = altcp_write(pcb, data, strlen(data), 0);
+    err = altcp_write(pcb, response, strlen(response), 0);
     err = altcp_output(pcb);
 }
 
@@ -123,14 +109,13 @@ err_t recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err)
     {
         pbuf_copy_partial(p, myBuff, p->tot_len, 0);
         myBuff[p->tot_len] = 0;
-        printf("%s", myBuff);
+        printf("TCP->UART: Sent %d bytes\n", p->tot_len);
         for (int i = 0; i < p->tot_len; ++i)
         {
             uart_putc_raw(UART1_ID, myBuff[i]);
         }
         altcp_recved(pcb, p->tot_len);
         pbuf_free(p);
-        // send200Ok(pcb, myBuff);
     }
     else
     {
@@ -156,7 +141,7 @@ static err_t accept(void *arg, struct altcp_pcb *pcb, err_t err)
     if (current_connection != NULL)
     {
         printf("Closing existing connection to accept new one\n");
-                altcp_close(current_connection);
+        altcp_close(current_connection);
         current_connection = NULL;
     }
 
@@ -259,18 +244,7 @@ void process_uart_data(void)
         if (err == ERR_OK)
         {
             altcp_output(current_connection); // Flush the data
-            printf("Sent %d bytes to TCP connection\n", send_size);
-
-            // For debug only - print first few bytes
-            if (send_size > 0)
-            {
-                printf("First bytes: ");
-                for (int i = 0; i < (send_size > 5 ? 5 : send_size); i++)
-                {
-                    printf("%c", send_buffer[i]);
-                }
-                printf("...\n");
-            }
+            printf("UART->TCP: Sent %d bytes\n", send_size);
         }
         else
         {
