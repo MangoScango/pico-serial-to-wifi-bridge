@@ -1,3 +1,3 @@
 - Fetch and set time
-- How manage the tcp connection? No memory leak
-- Reconnect to wifi until successfull
+- Manage multiple connections?
+- Ping, health or settings endpoint to get if alive and in which state
