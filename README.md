@@ -7,7 +7,6 @@ A Raspberry Pi Pico W project that creates a bidirectional bridge between UART s
 - **Bidirectional Communication**: Data flows seamlessly between UART and TCP connections
 - **WiFi Connectivity**: Connect to your local WiFi network for remote access
 - **TCP Server**: Listens on port 8080 for incoming connections
-- **Buffered Data Handling**: Efficient circular buffer for UART data with overflow protection
 - **Connection Management**: Automatic timeout and health monitoring
 - **Single Client Support**: Maintains one active TCP connection at a time
 
@@ -15,6 +14,24 @@ A Raspberry Pi Pico W project that creates a bidirectional bridge between UART s
 
 - Raspberry Pi Pico W
 - Serial device to bridge (connected to UART1)
+
+## Usage
+
+1. **Power on the Pico W** - It will automatically connect to your configured WiFi network
+2. **Monitor the serial output** (UART0 at 115200 baud) to see the assigned IP address
+3. **Connect to the TCP server** on port 8080:
+   ```bash
+   socat -d -d PTY,link=/tmp/picolink,raw TCP:{ip}:8080
+   ```
+4. **Send/receive data** - Any data written to /tmp/picolink will be forwarded to UART1, and vice versa
+
+## Monitoring and Debugging
+
+The device provides detailed logging via UART0 including:
+- WiFi connection status and IP address
+- Client connection/disconnection events
+- Data transfer statistics
+- Buffer overflow warnings
 
 ## Pin Configuration
 
@@ -77,21 +94,3 @@ If using VS Code, the following tasks are available:
 - **Flash**: Program the device via OpenOCD
 - **Clean**: Remove build directory
 - **Reset**: Reset the Pico W
-
-## Usage
-
-1. **Power on the Pico W** - It will automatically connect to your configured WiFi network
-2. **Monitor the serial output** (UART0 at 115200 baud) to see the assigned IP address
-3. **Connect to the TCP server** on port 8080:
-   ```bash
-   socat -d -d PTY,link=/tmp/picolink,raw TCP:{ip}:8080
-   ```
-4. **Send/receive data** - Any data written to /tmp/picolink will be forwarded to UART1, and vice versa
-
-## Monitoring and Debugging
-
-The device provides detailed logging via UART0 including:
-- WiFi connection status and IP address
-- Client connection/disconnection events
-- Data transfer statistics
-- Buffer overflow warnings
