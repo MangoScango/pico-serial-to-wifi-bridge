@@ -3,13 +3,13 @@
 
 #include "hardware/uart.h"
 
-#define BAUD_RATE 115200
+#define BAUD_RATE 230400
 #define DATA_BITS 8
 #define STOP_BITS 1
 #define PARITY UART_PARITY_NONE
 
-#define UART1_TX_PIN 4
-#define UART1_RX_PIN 5
+#define UART_TX_PIN 0
+#define UART_RX_PIN 1
 
 // Function pointer type for UART interrupt handler
 typedef void (*uart_handler_t)(void);
@@ -21,8 +21,8 @@ void setupUart(uart_inst_t *uartId, uart_handler_t uart_irq_handler)
 
     // Set the TX and RX pins by using the function select on the GPIO
     // Set datasheet for more information on function select
-    gpio_set_function(UART1_TX_PIN, UART_FUNCSEL_NUM(UART1_ID, UART1_TX_PIN));
-    gpio_set_function(UART1_RX_PIN, UART_FUNCSEL_NUM(UART1_ID, UART1_RX_PIN));
+    gpio_set_function(UART_TX_PIN, UART_FUNCSEL_NUM(uartId, UART_TX_PIN));
+    gpio_set_function(UART_RX_PIN, UART_FUNCSEL_NUM(uartId, UART_RX_PIN));
 
     // Set UART flow control CTS/RTS, we don't want these, so turn them off
     uart_set_hw_flow(uartId, false, false);
@@ -33,8 +33,11 @@ void setupUart(uart_inst_t *uartId, uart_handler_t uart_irq_handler)
     // Enable FIFO for better handling of streaming data
     uart_set_fifo_enabled(uartId, true);
 
-    // Set up a RX interrupt
-    // We need to set up the handler first
+    // Set the RX FIFO interrupt threshold to 1/8 full (~4 of 32 bytes) instead
+    // of the default 1/2. Firing the RX IRQ earlier leaves more margin before
+    // the 32-byte FIFO overruns during high-rate bursts.
+    hw_write_masked(&uart_get_hw(uartId)->ifls, 0u << 3, UART_UARTIFLS_RXIFLSEL_BITS);
+
     // Select correct interrupt for the UART we are using
     int UART_IRQ = uartId == uart1 ? UART1_IRQ : UART0_IRQ;
 
@@ -51,8 +54,8 @@ void setupUart(uart_inst_t *uartId, uart_handler_t uart_irq_handler)
     printf("Data Bits: %d\n", DATA_BITS);
     printf("Stop Bits: %d\n", STOP_BITS);
     printf("Parity: %s\n", PARITY == UART_PARITY_NONE ? "None" : (PARITY == UART_PARITY_ODD ? "Odd" : "Even"));
-    printf("TX Pin: %d\n", UART1_TX_PIN);
-    printf("RX Pin: %d\n", UART1_RX_PIN);
+    printf("TX Pin: %d\n", UART_TX_PIN);
+    printf("RX Pin: %d\n", UART_RX_PIN);
 }
 
 #endif // SETUPUART_H

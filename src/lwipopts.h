@@ -89,13 +89,7 @@
 #undef TCP_WND
 #define TCP_WND 16384
 
-#define SNTP_SERVER_DNS 1
-#define SNTP_SUPPORT 1
-#define SNTP_UPDATE_DELAY 60 * 1000
-
-#define SNTP_SET_SYSTEM_TIME_NTP(sec, us) \
-    void SNTPSetRTC(u32_t, u32_t);        \
-    SNTPSetRTC(sec, us)
+#define SNTP_SUPPORT 0
 
 #define LWIP_ALTCP 1
 

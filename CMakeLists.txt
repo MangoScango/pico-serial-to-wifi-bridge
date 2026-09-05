@@ -4,7 +4,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(PICO_BOARD pico_w CACHE STRING "Board type")
+set(PICO_BOARD pico2_w CACHE STRING "Board type")
 
 # Add definitions for Wi-Fi SSID and password
 if(DEFINED ENV{WIFI_SSID} AND (NOT WIFI_SSID))
@@ -41,8 +41,10 @@ pico_set_program_name(${PROJECT_NAME} "pico-serial-to-wifi-bridge")
 pico_set_program_version(${PROJECT_NAME} "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(${PROJECT_NAME} 1)
-pico_enable_stdio_usb(${PROJECT_NAME} 0)
+# Debug console (the firmware's own printf output) goes over USB CDC, NOT UART.
+# This frees hardware UART0 (physical pins 1/2 = GPIO0 TX / GPIO1 RX)
+pico_enable_stdio_uart(${PROJECT_NAME} 0)
+pico_enable_stdio_usb(${PROJECT_NAME} 1)
 
 # Add the standard include files to the build
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -54,8 +56,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME}
     pico_stdlib
     pico_cyw43_arch_lwip_threadsafe_background
-    pico_lwip_sntp
-    hardware_rtc
     hardware_irq
     hardware_uart
 )

@@ -1,6 +1,6 @@
 # Pico Serial-to-WiFi Bridge
 
-A Raspberry Pi Pico W project that creates a bidirectional bridge between UART serial communication and TCP over WiFi. This allows you to remotely access and control serial devices through a network connection.
+A Raspberry Pi Pico 2 W project that creates a bidirectional bridge between UART serial communication and TCP over WiFi. This allows you to remotely access and control serial devices through a network connection. This fork has been customized to target the Pico 2 W and the PS5's Titania uart1.
 
 ## Features
 
@@ -12,22 +12,27 @@ A Raspberry Pi Pico W project that creates a bidirectional bridge between UART s
 
 ## Hardware Requirements
 
-- Raspberry Pi Pico W
-- Serial device to bridge (connected to UART1)
+- Raspberry Pi Pico 2 W
+- Serial device to bridge (connected to UART0)
 
 ## Usage
 
-1. **Power on the Pico W** - It will automatically connect to your configured WiFi network
-2. **Monitor the serial output** (UART0 at 115200 baud) to see the assigned IP address
+1. **Power on the Pico 2 W** - It will automatically connect to your configured WiFi network
+2. **Monitor the debug console over USB** to see the assigned IP address. The
+   firmware's `printf` output goes to USB CDC (not UART), e.g.:
+   ```bash
+   picocom -b 115200 /dev/ttyACM0
+   ```
+   (The baud rate is ignored for USB CDC but the flag is required.)
 3. **Connect to the TCP server** on port 8080:
    ```bash
    socat -d -d PTY,link=/tmp/picolink,raw TCP:{ip}:8080
    ```
-4. **Send/receive data** - Any data written to /tmp/picolink will be forwarded to UART1, and vice versa
+4. **Send/receive data** - Any data written to /tmp/picolink will be forwarded to UART0, and vice versa
 
 ## Monitoring and Debugging
 
-The device provides detailed logging via UART0 including:
+The device provides detailed logging via the USB serial console including:
 - WiFi connection status and IP address
 - Client connection/disconnection events
 - Data transfer statistics
@@ -35,9 +40,9 @@ The device provides detailed logging via UART0 including:
 
 ## Pin Configuration
 
-- **UART1 TX**: GPIO 4
-- **UART1 RX**: GPIO 5
-- **Baud Rate**: 115200
+- **UART0 TX**: GPIO 0
+- **UART0 RX**: GPIO 1
+- **Baud Rate**: 230400
 - **Data Format**: 8N1 (8 data bits, no parity, 1 stop bit)
 
 ## Software Requirements
@@ -64,9 +69,18 @@ nix develop
    WIFI_PASSWORD="YourWiFiPassword"
    ```
 
-2. **Configure the project**:
+2. **Configure the project**. Under `nix develop` the SDK and toolchain are
+   already on the path, so a plain configure works:
    ```bash
-   cmake -S . -B build
+   cmake -S . -B build -G Ninja
+   ```
+   For a native (non-Nix) build, point at the SDK and the RP2350 (Cortex-M33)
+   toolchain file:
+   ```bash
+   export PICO_SDK_PATH=/path/to/pico-sdk
+   cmake -S . -B build -G Ninja \
+     -DPICO_BOARD=pico2_w \
+     -DCMAKE_TOOLCHAIN_FILE=$PICO_SDK_PATH/cmake/preload/toolchains/pico_arm_cortex_m33_gcc.cmake
    ```
 
 3. **Build the project**:
@@ -74,15 +88,15 @@ nix develop
    cmake --build build
    ```
 
-4. **Flash to Pico W**:
+4. **Flash to Pico 2 W**:
    - **Method 1 - OpenOCD** (requires debug probe):
      ```bash
-     openocd -f interface/cmsis-dap.cfg -f target/rp2040.cfg -c "adapter speed 5000" -c "program build/pico-serial-to-wifi-bridge.elf verify reset exit"
+     openocd -f interface/cmsis-dap.cfg -f target/rp2350.cfg -c "adapter speed 5000" -c "program build/pico-serial-to-wifi-bridge.elf verify reset exit"
      ```
    
    - **Method 2 - USB Boot** (hold BOOTSEL while connecting):
      ```bash
-     picotool load build/pico-serial-to-wifi-bridge.uf2 -fx
+     picotool load build/pico-serial-to-wifi-bridge.uf2 -x
      ```
 
 ## VS Code Tasks
@@ -93,4 +107,4 @@ If using VS Code, the following tasks are available:
 - **Build**: Compile the project
 - **Flash**: Program the device via OpenOCD
 - **Clean**: Remove build directory
-- **Reset**: Reset the Pico W
+- **Reset**: Reset the Pico 2 W

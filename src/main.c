@@ -6,7 +6,6 @@
 #include "lwip/tcp.h"
 #include "hardware/uart.h"
 #include "hardware/irq.h"
-#include "hardware/rtc.h"
 #include "pico/time.h"
 #include "time.h"
 #include "setupWifi.h"
@@ -22,8 +21,9 @@ static struct altcp_pcb *current_connection = NULL;
 static absolute_time_t last_tcp_send_time;
 static absolute_time_t last_tcp_activity_time;
 
-#define UART1_ID uart1
-#define UART_RX_BUFFER_SIZE 1024
+#define UART_ID uart0
+#define UART_RX_BUFFER_SIZE 65536
+#define UART_TX_CHUNK_SIZE 1460
 static uint8_t uart_rx_buffer[UART_RX_BUFFER_SIZE];
 static volatile size_t uart_rx_buffer_head = 0;
 static volatile size_t uart_rx_buffer_tail = 0;
@@ -82,12 +82,13 @@ err_t recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err)
     if (p != NULL)
     {
         last_tcp_activity_time = get_absolute_time();
-        pbuf_copy_partial(p, myBuff, p->tot_len, 0);
-        myBuff[p->tot_len] = 0;
-        printf("TCP->UART: Sent %d bytes\n", p->tot_len);
-        for (int i = 0; i < p->tot_len; ++i)
+        u16_t copy_len = p->tot_len < (TCP_BUF_SIZE - 1) ? p->tot_len : (TCP_BUF_SIZE - 1);
+        pbuf_copy_partial(p, myBuff, copy_len, 0);
+        myBuff[copy_len] = 0;
+        printf("TCP->UART: forwarding %d bytes\n", copy_len);
+        for (int i = 0; i < copy_len; ++i)
         {
-            uart_putc_raw(UART1_ID, myBuff[i]);
+            uart_putc_raw(UART_ID, myBuff[i]);
         }
         altcp_recved(pcb, p->tot_len);
         pbuf_free(p);
@@ -171,9 +172,9 @@ static inline bool uart_rx_buffer_push(uint8_t c)
 
 void on_uart_rx()
 {
-    while (uart_is_readable(UART1_ID))
+    while (uart_is_readable(UART_ID))
     {
-        uint8_t ch = uart_getc(UART1_ID);
+        uint8_t ch = uart_getc(UART_ID);
         if (!uart_rx_buffer_push(ch))
         {
             // Buffer is full
@@ -190,27 +191,29 @@ void process_uart_data(void)
         return;
     }
 
-    // Only send if we're past the minimum interval or if we have a lot of data
-    if (absolute_time_diff_us(last_tcp_send_time, get_absolute_time()) < TCP_SEND_INTERVAL_MS * 1000 &&
-        ((uart_rx_buffer_head - uart_rx_buffer_tail + UART_RX_BUFFER_SIZE) % UART_RX_BUFFER_SIZE) < UART_RX_BUFFER_SIZE / 2)
-    {
-        return;
-    }
-
-    // Calculate how many bytes we have to send
-    size_t bytes_available = (uart_rx_buffer_head - uart_rx_buffer_tail + UART_RX_BUFFER_SIZE) % UART_RX_BUFFER_SIZE;
+    // Snapshot head once: it is updated by the RX IRQ, tail only here.
+    size_t head = uart_rx_buffer_head;
+    size_t bytes_available = (head - uart_rx_buffer_tail + UART_RX_BUFFER_SIZE) % UART_RX_BUFFER_SIZE;
     if (bytes_available == 0)
     {
         uart_data_ready = false;
         return;
     }
 
-    // Prepare data to send
-    uint8_t send_buffer[UART_RX_BUFFER_SIZE];
+    // Send when either the batching interval has elapsed or we have at least
+    // one chunk's worth queued. This keeps latency bounded while still
+    // coalescing small amounts of data into fewer TCP segments.
+    if (absolute_time_diff_us(last_tcp_send_time, get_absolute_time()) < TCP_SEND_INTERVAL_MS * 1000 &&
+        bytes_available < UART_TX_CHUNK_SIZE)
+    {
+        return;
+    }
+
+    uint8_t send_buffer[UART_TX_CHUNK_SIZE];
     size_t send_size = 0;
 
     // Copy data from circular buffer to linear buffer for sending
-    while (uart_rx_buffer_tail != uart_rx_buffer_head && send_size < UART_RX_BUFFER_SIZE)
+    while (uart_rx_buffer_tail != head && send_size < UART_TX_CHUNK_SIZE)
     {
         send_buffer[send_size++] = uart_rx_buffer[uart_rx_buffer_tail];
         uart_rx_buffer_tail = (uart_rx_buffer_tail + 1) % UART_RX_BUFFER_SIZE;
@@ -224,14 +227,13 @@ void process_uart_data(void)
         {
             altcp_output(current_connection); // Flush the data
             printf("UART->TCP: Sent %d bytes\n", send_size);
+            uart_rx_buffer_overflow = false;
         }
         else
         {
             printf("Failed to send data to TCP connection: %d\n", err);
+            uart_rx_buffer_tail = (uart_rx_buffer_tail - send_size + UART_RX_BUFFER_SIZE) % UART_RX_BUFFER_SIZE;
         }
-
-        // Reset overflow flag if we managed to send data
-        uart_rx_buffer_overflow = false;
     }
 
     last_tcp_send_time = get_absolute_time();
@@ -279,7 +281,7 @@ int main()
     cyw43_arch_lwip_end();
     last_tcp_send_time = get_absolute_time();
 
-    setupUart(UART1_ID, on_uart_rx);
+    setupUart(UART_ID, on_uart_rx);
     printf("UART RX Buffer Size: %d bytes\n", UART_RX_BUFFER_SIZE);
 
     print_memory_stats();

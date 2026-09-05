@@ -71,7 +71,9 @@ int setup(uint32_t country, const char *ssid, const char *pass,
         }
         else
         {
-            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+            // Connected: leave the LED off. Steady-state is LED-off; the
+            // blink during the connect loop above is the only LED activity.
+            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
             if (ip != NULL)
             {
                 netif_set_ipaddr(netif_default, ip);
