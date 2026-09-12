@@ -222,10 +222,17 @@ void process_uart_data(void)
     // Send the data over TCP
     if (send_size > 0)
     {
+        cyw43_arch_lwip_begin();
         err_t err = altcp_write(current_connection, send_buffer, send_size, TCP_WRITE_FLAG_COPY);
         if (err == ERR_OK)
         {
             altcp_output(current_connection); // Flush the data
+        }
+        cyw43_arch_lwip_end();
+
+        if (err == ERR_OK)
+        {
+            last_tcp_activity_time = get_absolute_time();
             printf("UART->TCP: Sent %d bytes\n", send_size);
             uart_rx_buffer_overflow = false;
         }
@@ -252,6 +259,7 @@ void check_connection_health(void)
 
     if (absolute_time_diff_us(last_tcp_activity_time, get_absolute_time()) > TCP_CONNECTION_TIMEOUT_MS * 1000)
     {
+        cyw43_arch_lwip_begin();
         ip_addr_t *remote_ip = altcp_get_ip(current_connection, 0);
         u16_t remote_port = altcp_get_port(current_connection, 0);
         if (remote_ip)
@@ -265,6 +273,7 @@ void check_connection_health(void)
         }
         altcp_close(current_connection);
         current_connection = NULL;
+        cyw43_arch_lwip_end();
     }
 }
 
